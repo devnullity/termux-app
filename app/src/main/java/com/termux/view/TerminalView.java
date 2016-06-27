@@ -86,6 +86,9 @@ public final class TerminalView extends View {
 	/** If non-zero, this is the last unicode code point received if that was a combining character. */
 	int mCombiningAccent;
 
+  boolean wasControl=false;
+  boolean wasFn=false;
+
 	public TerminalView(Context context, AttributeSet attributes) { // NO_UCD (unused code)
 		super(context, attributes);
 		mGestureRecognizer = new GestureAndScaleRecognizer(context, new GestureAndScaleRecognizer.Listener() {
@@ -315,6 +318,7 @@ public final class TerminalView extends View {
 						codePoint = firstChar;
 					}
 					inputCodePoint(codePoint, false, false);
+                  resetVirtualKeys();
 				}
 				return true;
 			}
@@ -577,6 +581,7 @@ public final class TerminalView extends View {
 		}
 
 		int keyMod = 0;
+
 		if (controlDownFromEvent) keyMod |= KeyHandler.KEYMOD_CTRL;
 		if (event.isAltPressed()) keyMod |= KeyHandler.KEYMOD_ALT;
 		if (event.isShiftPressed()) keyMod |= KeyHandler.KEYMOD_SHIFT;
@@ -627,7 +632,7 @@ public final class TerminalView extends View {
 		}
 
 		int resultingKeyCode = -1; // Set if virtual key causes this to be translated to key event.
-		if (controlDownFromEvent || mVirtualControlKeyDown) {
+      if (controlDownFromEvent || mVirtualControlKeyDown || wasControl) {
 			if (codePoint >= 'a' && codePoint <= 'z') {
 				codePoint = codePoint - 'a' + 1;
 			} else if (codePoint >= 'A' && codePoint <= 'Z') {
@@ -651,7 +656,7 @@ public final class TerminalView extends View {
 			} else if (codePoint == '0') {
 				resultingKeyCode = KeyEvent.KEYCODE_F12;
 			}
-		} else if (mVirtualFnKeyDown) {
+      } else if (mVirtualFnKeyDown || wasFn) {
             int lowerCase = Character.toLowerCase(codePoint);
             switch (lowerCase) {
                 // Arrow keys.
@@ -768,13 +773,24 @@ public final class TerminalView extends View {
 		if (inputDevice != null && inputDevice.getKeyboardType() == InputDevice.KEYBOARD_TYPE_ALPHABETIC) {
 			// Do not steal dedicated buttons from a full external keyboard.
 			return false;
+          if (down) {
+              wasControl=true;
+          }
 		} else if (keyCode == KeyEvent.KEYCODE_VOLUME_DOWN) {
 			if (LOG_KEY_EVENTS) Log.i(EmulatorDebug.LOG_TAG, "handleVirtualKeys(down=" + down + ") taking ctrl event");
 			mVirtualControlKeyDown = down;
 			return true;
+          if (down) {
+              wasFn=true;
+          }
 		} else if (keyCode == KeyEvent.KEYCODE_VOLUME_UP) {
 			if (LOG_KEY_EVENTS) Log.i(EmulatorDebug.LOG_TAG, "handleVirtualKeys(down=" + down + ") taking Fn event");
 			mVirtualFnKeyDown = down;
+  }
+
+  private void resetVirtualKeys() {
+      wasControl=false;
+      wasFn=false;
 			return true;
 		}
 		return false;
